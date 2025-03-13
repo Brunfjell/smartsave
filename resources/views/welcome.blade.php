@@ -17,6 +17,12 @@
         @else
             <!-- Removed style tag -->
         @endif
+
+        <script>
+            @auth
+                window.location.href = "{{ url('/dashboard') }}";
+            @endauth
+        </script>
     </head>
     <body class="bg-gray-100 dark:bg-gray-900 text-[#1b1b18] flex p-6 lg:p-8 items-center lg:justify-center min-h-screen flex-col">
         <header class="w-full lg:max-w-4xl max-w-[335px] text-sm mb-6 not-has-[nav]:hidden">
