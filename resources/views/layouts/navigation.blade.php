@@ -12,7 +12,7 @@
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="border-b-2 ">
+                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="has-checked:border-b-2 ">
                         {{ __('Dashboard') }}
                     </x-nav-link>
                 </div>
@@ -54,7 +54,9 @@
 
                             <x-dropdown-link :href="route('logout')"
                                     onclick="event.preventDefault();
-                                                this.closest('form').submit();">
+                                    if(confirm('Are you sure you want to log out?')) {
+                                        this.closest('form').submit();
+                                    }">
                                 {{ __('Log Out') }}
                             </x-dropdown-link>
                         </form>
@@ -77,17 +79,17 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="border-b-2 border-custom-accent">
+                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="border-b-2">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
         </div>
         <div class="pt-2 pb-3 space-y-1">
-                <x-responsive-nav-link :href="route('analytics')" :active="request()->routeIs('analytics')" class="border-b-2 border-custom-accent">
+                <x-responsive-nav-link :href="route('analytics')" :active="request()->routeIs('analytics')" class="border-b-2">
                 {{ __('Analytics') }}
             </x-responsive-nav-link>
         </div>
         <div class="pt-2 pb-3 space-y-1">
-                <x-responsive-nav-link :href="route('devices')" :active="request()->routeIs('devices')" class="border-b-2 border-custom-accent">
+                <x-responsive-nav-link :href="route('devices')" :active="request()->routeIs('devices')" class="border-b-2">
                 {{ __('Devices') }}
             </x-responsive-nav-link>
         </div>
@@ -105,12 +107,10 @@
                 </x-responsive-nav-link>
 
                 <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
+                <form method="POST" action="{{ route('logout') }}" onclick="event.preventDefault(); this.closest('form').submit();">
                     @csrf
 
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
+                    <x-responsive-nav-link :href="route('logout')">
                         {{ __('Log Out') }}
                     </x-responsive-nav-link>
                 </form>
