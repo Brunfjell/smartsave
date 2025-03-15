@@ -14,6 +14,8 @@ Route::get('/dashboard', function () {
 
 Route::get('/analytics', [AnalyticsController::class, 'index'])->middleware(['auth', 'verified'])->name('analytics');
 
+Route::get('/analytics/energy-data', [AnalyticsController::class, 'getEnergyData'])->middleware(['auth', 'verified']);
+
 Route::get('/devices', function () {
     return view('devices');
 })->middleware(['auth', 'verified'])->name('devices');

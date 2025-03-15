@@ -16,5 +16,7 @@ class EnvironmentalData extends Model
         'parameter',
         'value',
         'timestamp',
+        'temperature_celsius',
+        'humidity_percent',
     ];
 }

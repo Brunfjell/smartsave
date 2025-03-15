@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\EnergyData;
 use App\Models\EnvironmentalData;
 use App\Models\Forecast;
@@ -12,29 +13,66 @@ use Symfony\Component\HttpClient\HttpClient;
 class AnalyticsController extends Controller
 {
     public function index() {
-        $kWhCharge = $this->fetchCurrentKwhCharge(); // Fetch current kWh charge
 
-        // Fetch energy consumption data for the authenticated user
         $energyData = EnergyData::where('user_id', Auth::id())->get(['energy_consumption_kwh', 'power_usage_watts', 'voltage_volts', 'timestamp']);
         $predictedEnergy = Forecast::where('user_id', Auth::id())->pluck('predicted_energy_kwh');
-
-        \Log::info('Energy Data:', $energyData->toArray()); // Debugging line
-
+        $temperatureData = EnvironmentalData::where('user_id', Auth::id())->get(['temperature_celsius','timestamp']);
+        $humidityData = EnvironmentalData::where('user_id', Auth::id())->get(['humidity_percent','timestamp']);
         $environmentData = EnvironmentalData::all();
-        \Log::info('Environmental Data:', $environmentData->toArray()); // Debugging line
         $forecasts = Forecast::all();
-        \Log::info('Forecasts:', $forecasts->toArray()); // Debugging line
-
         $energyConsumption = $energyData->pluck('energy_consumption_kwh'); 
         $timestamps = $energyData->pluck('timestamp'); 
         $wattsUsage = $energyData->pluck('power_usage_watts'); 
         $volts = $energyData->pluck('voltage_volts'); 
-        $totalConsumption = $energyConsumption->sum(); // Calculate total monthly consumption
-        $predictedMonthlyCharge = $totalConsumption * $kWhCharge; // Compute predicted monthly charge
+        $totalConsumption = $energyConsumption->sum(); 
+        $kWhCharge = $this->fetchCurrentKwhCharge(); 
+        $predictedMonthlyCharge = $totalConsumption * $kWhCharge;
 
-return view('analytics', compact('energyData', 'environmentData', 'forecasts', 'energyConsumption', 'timestamps', 'predictedEnergy', 'kWhCharge', 'predictedMonthlyCharge', 'totalConsumption'));
+        // Prepare data for Chart.js
+        $temperatures = $temperatureData->pluck('temperature_celsius');
+        $humidity = $humidityData->pluck('humidity_percent');
+        $envTimestamps = $temperatureData->pluck('timestamp');
 
+        return view('analytics', compact('energyData', 'environmentData', 'forecasts', 'energyConsumption', 'totalConsumption', 'timestamps', 'predictedEnergy', 'kWhCharge', 'predictedMonthlyCharge', 'temperatures', 'humidity', 'envTimestamps'));
+    }
 
+    public function getEnergyData(Request $request)
+    {
+        $range = $request->query('range', '24h'); // Default: Last 24 hours
+        $userId = auth()->id(); // Get current logged-in user
+
+        // Define date range conditions
+        switch ($range) {
+            case '7d':
+                $startDate = now()->subDays(7);
+                break;
+            case '30d':
+                $startDate = now()->subDays(30);
+                break;
+            case 'monthly':
+                $startDate = now()->startOfMonth();
+                break;
+            default: // 24h
+                $startDate = now()->subHours(24);
+                break;
+        }
+
+        // Fetch energy data
+        $energyData = DB::table('energy_data')
+            ->where('user_id', $userId)
+            ->where('timestamp', '>=', $startDate)
+            ->orderBy('timestamp')
+            ->get(['timestamp', 'power_usage_watts', 'voltage_volts', 'energy_consumption_kwh']);
+
+        // Format timestamps and data
+        $timestamps = $energyData->pluck('timestamp');
+        $energyConsumption = $energyData->pluck('energy_consumption_kwh');
+
+        return response()->json([
+            'timestamps' => $timestamps,
+            'energyConsumption' => $energyConsumption,
+            'energyData' => $energyData
+        ]);
     }
 
     public function fetchCurrentKwhCharge(): ?float {
@@ -76,5 +114,4 @@ return view('analytics', compact('energyData', 'environmentData', 'forecasts', '
             return null;
         }
     }
-               
 }
