@@ -42,54 +42,54 @@ for (user_id in user_ids) {
     next  # Skip user if no energy data exists
   }
   
-  # Convert timestamp to Date-Time format
-  energy_data$timestamp <- as.POSIXct(energy_data$timestamp, format="%Y-%m-%d %H:%M:%S")
-  env_data$timestamp <- as.POSIXct(env_data$timestamp, format="%Y-%m-%d %H:%M:%S")
+  # Convert timestamp to POSIXct format and handle parsing errors
+  energy_data$timestamp <- as.POSIXct(energy_data$timestamp, format="%Y-%m-%d %H:%M:%S", tz="UTC")
+  env_data$timestamp <- as.POSIXct(env_data$timestamp, format="%Y-%m-%d %H:%M:%S", tz="UTC")
   
-  # Merge datasets (if environmental data is present)
+  # Remove rows with completely invalid timestamps
+  energy_data <- energy_data[!is.na(energy_data$timestamp) & is.finite(energy_data$timestamp), ]
+  env_data <- env_data[!is.na(env_data$timestamp) & is.finite(env_data$timestamp), ]
+  
+  # Merge datasets (keep energy data even if environmental data is missing)
   if (nrow(env_data) > 0) {
-    merged_data <- left_join(energy_data, env_data, by = "timestamp")  # Left join to keep all energy data
+    merged_data <- left_join(energy_data, env_data, by = "timestamp")
   } else {
-    merged_data <- energy_data  # Use energy data alone
-    merged_data$temperature_celsius <- NA  # Add missing columns
+    merged_data <- energy_data
+    merged_data$temperature_celsius <- NA
     merged_data$humidity_percent <- NA
   }
   
-  # Handle missing values
-  merged_data <- na.omit(merged_data)  # Remove rows with NA values
+  # Remove any remaining rows with NA timestamps
+  merged_data <- merged_data[!is.na(merged_data$timestamp) & is.finite(merged_data$timestamp), ]
   
-  # Get last valid timestamp for prediction
+  # Get last valid timestamp
   last_timestamp <- max(merged_data$timestamp, na.rm = TRUE)
   
-  # Ensure last_timestamp is valid before using seq()
+  # If last_timestamp is still invalid, use the current time as fallback
   if (is.na(last_timestamp) || !is.finite(last_timestamp)) {
-    cat(sprintf("Skipping user_id: %d due to invalid timestamp.\n", user_id))
-    next  # Skip user if timestamp is invalid
+    cat(sprintf("Warning: No valid timestamps for user_id: %d. Using current system time for predictions.\n", user_id))
+    last_timestamp <- Sys.time()
   }
   
-  # Predict energy consumption for the next 24 hours
+  # Generate future timestamps for predictions
   future_timestamps <- seq(last_timestamp + hours(1), by = "hour", length.out = 24)
   
+  # Regression model (if enough data)
   if (nrow(merged_data) > 10 && !all(is.na(merged_data$temperature_celsius))) {
-    # Train regression model if enough data is available
     model <- lm(energy_consumption_kwh ~ temperature_celsius + humidity_percent, data = merged_data)
     
-    # Create future data frame using mean environmental values
     future_data <- data.frame(
       temperature_celsius = mean(merged_data$temperature_celsius, na.rm=TRUE),
       humidity_percent = mean(merged_data$humidity_percent, na.rm=TRUE)
     )
     
-    # Predict energy consumption
     predictions <- predict(model, newdata = future_data)
-    
     cat(sprintf("Regression-based forecasting for user_id: %d\n", user_id))
     
   } else {
-    # Use mean energy consumption if no regression is possible
+    # Mean-based fallback prediction
     mean_energy <- mean(merged_data$energy_consumption_kwh, na.rm=TRUE)
-    predictions <- rep(mean_energy, 24)  # Assume future usage remains at the mean
-    
+    predictions <- rep(mean_energy, 24)
     cat(sprintf("Using mean-based forecasting for user_id: %d due to limited data.\n", user_id))
   }
   
